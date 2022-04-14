@@ -96,6 +96,9 @@ function skillBallsMacroName(skillOrName: SkillOrName) {
     : toInt(skill);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ArrayUnion<T> = T extends any ? T[] : never;
+
 type BallsCondition =
   | string
   | Monster
@@ -106,15 +109,7 @@ type BallsCondition =
   | Class
   | Stat;
 
-type AggregateBallsCondition =
-  | string[]
-  | Monster[]
-  | Effect[]
-  | Skill[]
-  | Item[]
-  | Location[]
-  | Class[]
-  | Stat[];
+type AggregateBallsCondition = ArrayUnion<BallsCondition>;
 
 function conditionToBalls(condition: BallsCondition) {
   let ballsCondition = "";
