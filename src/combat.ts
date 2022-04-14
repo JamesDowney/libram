@@ -96,6 +96,68 @@ function skillBallsMacroName(skillOrName: SkillOrName) {
     : toInt(skill);
 }
 
+type BallsCondition =
+  | string
+  | Monster
+  | Effect
+  | Skill
+  | Item
+  | Location
+  | Class
+  | Stat;
+
+type AggregateBallsCondition =
+  | string[]
+  | Monster[]
+  | Effect[]
+  | Skill[]
+  | Item[]
+  | Location[]
+  | Class[]
+  | Stat[];
+
+function conditionToBalls(condition: BallsCondition) {
+  let ballsCondition = "";
+  if (condition instanceof Monster) {
+    ballsCondition = `monsterid ${condition.id}`;
+  } else if (condition instanceof Effect) {
+    ballsCondition = `haseffect ${toInt(condition)}`;
+  } else if (condition instanceof Skill) {
+    ballsCondition = `hasskill ${skillBallsMacroName(condition)}`;
+  } else if (condition instanceof Item) {
+    if (!condition.combat) {
+      throw new InvalidMacroError(
+        `Item ${condition} cannot be made a valid BALLS predicate (it is not combat-usable)`
+      );
+    }
+
+    ballsCondition = `hascombatitem ${itemOrItemsBallsMacroName(condition)}`;
+  } else if (condition instanceof Location) {
+    const snarfblat = condition.id;
+
+    if (snarfblat < 1) {
+      throw new InvalidMacroError(
+        `Location ${condition} cannot be made a valid BALLS predicate (it has no location id)`
+      );
+    }
+
+    ballsCondition = `snarfblat ${snarfblat}`;
+  } else if (condition instanceof Class) {
+    if (toInt(condition) > 6) {
+      throw new InvalidMacroError(
+        `Class ${condition} cannot be made a valid BALLS predicate (it is not a standard class)`
+      );
+    }
+
+    ballsCondition = condition.toString().replaceAll(" ", "").toLowerCase();
+  } else if (condition instanceof Stat) {
+    ballsCondition = `${condition.toString().toLowerCase()}class`;
+  } else {
+    ballsCondition = condition;
+  }
+  return ballsCondition;
+}
+
 type Constructor<T> = { new (): T };
 
 export class InvalidMacroError extends Error {}
@@ -286,55 +348,12 @@ export class Macro {
    * @returns {Macro} This object itself.
    */
   if_(
-    condition:
-      | string
-      | Monster
-      | Effect
-      | Skill
-      | Item
-      | Location
-      | Class
-      | Stat,
+    condition: BallsCondition | AggregateBallsCondition,
     ifTrue: string | Macro
   ): this {
-    let ballsCondition = "";
-    if (condition instanceof Monster) {
-      ballsCondition = `monsterid ${condition.id}`;
-    } else if (condition instanceof Effect) {
-      ballsCondition = `haseffect ${toInt(condition)}`;
-    } else if (condition instanceof Skill) {
-      ballsCondition = `hasskill ${skillBallsMacroName(condition)}`;
-    } else if (condition instanceof Item) {
-      if (!condition.combat) {
-        throw new InvalidMacroError(
-          `Item ${condition} cannot be made a valid BALLS predicate (it is not combat-usable)`
-        );
-      }
-
-      ballsCondition = `hascombatitem ${itemOrItemsBallsMacroName(condition)}`;
-    } else if (condition instanceof Location) {
-      const snarfblat = condition.id;
-
-      if (snarfblat < 1) {
-        throw new InvalidMacroError(
-          `Location ${condition} cannot be made a valid BALLS predicate (it has no location id)`
-        );
-      }
-
-      ballsCondition = `snarfblat ${snarfblat}`;
-    } else if (condition instanceof Class) {
-      if (toInt(condition) > 6) {
-        throw new InvalidMacroError(
-          `Class ${condition} cannot be made a valid BALLS predicate (it is not a standard class)`
-        );
-      }
-
-      ballsCondition = condition.toString().replaceAll(" ", "").toLowerCase();
-    } else if (condition instanceof Stat) {
-      ballsCondition = `${condition.toString().toLowerCase()}class`;
-    } else {
-      ballsCondition = condition;
-    }
+    const ballsCondition = Array.isArray(condition)
+      ? condition.map(conditionToBalls).join(" || ")
+      : conditionToBalls(condition);
     return this.step(`if ${ballsCondition}`).step(ifTrue).step("endif");
   }
 
